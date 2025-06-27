@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Мое приложение ВК</title>
+    <script src="https://vk.com/js/api/openapi.js?169"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #f5f5f5;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: white;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #ddd;
+        }
+        .tab {
+            padding: 10px 20px;
+            cursor: pointer;
+            background-color: #f1f1f1;
+            border: 1px solid #ddd;
+            border-bottom: none;
+            margin-right: 5px;
+            border-radius: 5px 5px 0 0;
+        }
+        .tab.active {
+            background-color: #5181b8;
+            color: white;
+        }
+        .tab-content {
+            display: none;
+            padding: 20px;
+            border: 1px solid #ddd;
+            border-top: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+        .admin-form {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            max-width: 500px;
+        }
+        .admin-form input, .admin-form textarea {
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .admin-form button {
+            padding: 10px;
+            background-color: #5181b8;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+        .admin-form button:hover {
+            background-color: #3a6a9e;
+        }
+        .visitor-counter {
+            text-align: right;
+            padding: 10px;
+            color: #666;
+            font-size: 14px;
+            display: none;
+        }
+        .success-message {
+            color: green;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Счетчик посещений (виден только создателю) -->
+        <div id="visitorCounter" class="visitor-counter">
+            Посетителей: <span id="counterValue">0</span>
+        </div>
+
+        <div class="tabs">
+            <div class="tab active" data-tab="info">Информация по серверу</div>
+            <div class="tab" data-tab="admins">Админы</div>
+            <div class="tab" data-tab="donate">Донат</div>
+        </div>
+
+        <div id="info" class="tab-content active">
+            <h2>Информация по серверу</h2>
+            <p>В разработке</p>
+        </div>
+
+        <div id="admins" class="tab-content">
+            <h2>Админы</h2>
+            <p>Привет, если именно ты решил стать помощником нашего проекта, тебе надо будет заполнить краткую форму.</p>
+            
+            <div id="adminFormContainer">
+                <form id="adminForm" class="admin-form">
+                    <input type="text" id="fullName" placeholder="ФИО" required>
+                    <input type="date" id="birthDate" required>
+                    <textarea id="whyYou" rows="4" placeholder="Почему именно ты должен стать помощником нашего проекта?" required></textarea>
+                    <button type="submit">Отправить заявку</button>
+                </form>
+                <p id="successMessage" class="success-message">Заявка отправлена успешно!</p>
+            </div>
+        </div>
+
+        <div id="donate" class="tab-content">
+            <h2>Донат</h2>
+            <p>Будет готов вместе с сервером</p>
+        </div>
+    </div>
+
+    <script>
+        // Конфигурация (ЗАМЕНИТЕ ЭТИ ЗНАЧЕНИЯ)
+        const CONFIG = {APP_ID: 53822880, // Ваш ID приложения ВК
+            CREATOR_ID: 386538131 // Ваш личный ID ВК
+        };
+
+        // Инициализация VK API
+        VK.init({
+            apiId: CONFIG.APP_ID,
+            onlyWidgets: false
+        });
+
+        // Переключение вкладок
+        document.querySelectorAll('.tab').forEach(tab => {
+            tab.addEventListener('click', () => {
+                document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                
+                tab.classList.add('active');
+                document.getElementById(tab.dataset.tab).classList.add('active');
+            });
+        });
+
+        // Обработка формы админа
+        document.getElementById('adminForm').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const fullName = document.getElementById('fullName').value;
+            const birthDate = document.getElementById('birthDate').value;
+            const whyYou = document.getElementById('whyYou').value;
+            
+            VK.Auth.getLoginStatus(function(response) {
+                if (response.status === 'connected') {
+                    sendApplication(response.session.user.id, fullName, birthDate, whyYou);
+                } else {
+                    VK.Auth.login(function(response) {
+                        if (response.session) {
+                            sendApplication(response.session.user.id, fullName, birthDate, whyYou);
+                        } else {
+                            alert('Необходимо авторизоваться для отправки заявки!');
+                        }
+                    }, VK.access.FRIENDS);
+                }
+            });
+        });
+
+        // Функция отправки заявки
+        function sendApplication(userId, fullName, birthDate, whyYou) {
+            const message = `Новая заявка на помощника проекта!\n\n` +
+                          `От: https://vk.com/id${userId}\n` +
+                          `ФИО: ${fullName}\n` +
+                          `Дата рождения: ${birthDate}\n` +
+                          `Почему именно он/она: ${whyYou}`;
+            
+            VK.Api.call('messages.send', {
+                user_id: CONFIG.CREATOR_ID,
+                message: message,
+                random_id: Math.floor(Math.random() * 1000000)
+            }, function(response) {
+                if (response.response) {
+                    document.getElementById('successMessage').style.display = 'block';
+                    document.getElementById('adminForm').reset();
+                    setTimeout(() => {
+                        document.getElementById('successMessage').style.display = 'none';
+                    }, 3000);
+                } else if (response.error) {
+                    alert('Ошибка: ' + response.error.error_msg);
+                }
+            });
+        }
+
+        // Проверка на создателя и счетчик посещений
+        function initApp() {
+            VK.Auth.getLoginStatus(function(response) {
+                if (response.status === 'connected' && response.session.user.id == CONFIG.CREATOR_ID) {
+                    document.getElementById('visitorCounter').style.display = 'block';
+                    updateVisitorCounter();
+                }
+            });
+        }
+
+        // Счетчик посещений (используем localStorage как простую альтернативу)
+        function updateVisitorCounter() {
+            let count = localStorage.getItem('visitor_count') || 0;
+            count = parseInt(count) + 1;
+            localStorage.setItem('visitor_count', count);
+            document.getElementById('counterValue').textContent = count;
+        }
+
+        // Инициализация при загрузке
+        window.onload = initApp;
+    </script>
+</body>
+</html>
